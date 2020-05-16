@@ -154,10 +154,9 @@ docker_actions(){
           fi
           ;;
         "")
-          action=${docker_actions[$selected]}
+          action=${docker_actions[$selection]}
           case $action in
             logs)
-            echo $1
               docker logs -f $1
             ;;
             restart)
