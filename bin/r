@@ -14,6 +14,7 @@ IFS=$OLD_IFS
 
 selection=0
 upperBounds=$((${#repos[@]} - 1))
+docker_actions=(logs restart)
 
 readonly SGR_RESET="\033[0m"
 readonly SGR_FAINT="\033[2m"
@@ -37,6 +38,16 @@ show_docker_options(){
         printf "  ${SGR_CYAN}ο${SGR_RESET} %s\n" "${containers[$i]}"
       else
         printf "    ${SGR_FAINT}%s${SGR_RESET}\n" "${containers[$i]}"
+      fi
+  done
+}
+
+show_docker_actions(){
+  for i in ${!docker_actions[@]}; do
+      if [[ $selection -eq $i ]]; then
+        printf "  ${SGR_CYAN}ο${SGR_RESET} %s\n" "${docker_actions[$i]}"
+      else
+        printf "    ${SGR_FAINT}%s${SGR_RESET}\n" "${docker_actions[$i]}"
       fi
   done
 }
@@ -107,7 +118,52 @@ select_container(){
         "")
           # Enter key pressed, this is the selection
           read selected_container _ <<< ${containers[$selection]}
-          docker logs -f $selected_container
+          docker_actions $selected_container
+        ;;
+      esac
+  done
+}
+
+docker_actions(){
+  selection=0
+  clear
+  show_docker_actions
+  while true; do
+      read -rsn 1 key
+      case "$key" in
+        $ESCAPE_SEQ)
+          read -rsn 1 -t 1 tmp
+          if [[ "$tmp" == "[" ]]; then
+            read -rsn 1 -t 1 arrow
+            case "$arrow" in
+              $UP)
+                if [[ $selection -ne 0 ]]; then
+                  selection=$((selection - 1))
+                fi
+                clear
+                show_docker_actions
+                ;;
+              $DOWN)
+                if [[ $selection -ne $((${#docker_actions[@]} - 1)) ]]; then
+                  selection=$((selection + 1))
+                fi
+                clear
+                show_docker_actions
+                ;;
+            esac
+          fi
+          ;;
+        "")
+          action=${docker_actions[$selected]}
+          case $action in
+            logs)
+            echo $1
+              docker logs -f $1
+            ;;
+            restart)
+              docker restart $1
+            ;;
+          esac
         ;;
       esac
   done
