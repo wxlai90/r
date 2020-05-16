@@ -160,7 +160,9 @@ docker_actions(){
               docker logs -f $1
             ;;
             restart)
+              echo "restarting container: $1"
               docker restart $1
+              exit 0
             ;;
           esac
         ;;
