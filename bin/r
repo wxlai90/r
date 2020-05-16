@@ -1,0 +1,62 @@
+ESCAPE_SEQ=$'\033'
+UP=$'A'
+DOWN=$'B'
+RIGHT=$'C'
+LEFT=$'D'
+
+readonly rootPath=/change/to/sourcing/from/config/.r/file
+
+repos=(A B C)
+
+selection=0
+upperBounds=$((${#repos[@]} - 1))
+
+readonly SGR_RESET="\033[0m"
+readonly SGR_FAINT="\033[2m"
+readonly SGR_CYAN="\033[36m"
+
+show_options(){
+  for i in ${!repos[@]}; do
+      if [[ $selection -eq $i ]]; then
+        printf "  ${SGR_CYAN}ο${SGR_RESET} %s\n" "${repos[$i]}"
+      else
+        printf "    ${SGR_FAINT}%s${SGR_RESET}\n" "${repos[$i]}"
+      fi
+  done
+}
+
+clear
+show_options
+
+
+while true; do
+    read -rsn 1 key
+    case "$key" in
+      $ESCAPE_SEQ)
+        read -rsn 1 -t 1 tmp
+        if [[ "$tmp" == "[" ]]; then
+          read -rsn 1 -t 1 arrow
+          case "$arrow" in
+            $UP)
+              if [[ $selection -ne 0 ]]; then
+                selection=$((selection - 1))
+              fi
+              clear
+              show_options
+              ;;
+            $DOWN)
+              if [[ $selection -ne $upperBounds ]]; then
+                selection=$((selection + 1))
+              fi
+              clear
+              show_options
+              ;;
+          esac
+        fi
+        ;;
+      "")
+        # Enter key pressed, this is the selection
+        echo "cd $rootPath/${repos[$selection]}"
+      ;;
+    esac
+done
