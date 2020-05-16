@@ -4,9 +4,13 @@ DOWN=$'B'
 RIGHT=$'C'
 LEFT=$'D'
 
-readonly rootPath=/change/to/sourcing/from/config/.r/file
+source ~/.r/r.conf
 
-repos=(A B C)
+OLD_IFS="$IFS"
+IFS=$'\n'
+containers=($(docker ps -a --format "{{.Names}} --> {{.Status}}\n"))
+IFS=$OLD_IFS
+
 
 selection=0
 upperBounds=$((${#repos[@]} - 1))
@@ -15,7 +19,7 @@ readonly SGR_RESET="\033[0m"
 readonly SGR_FAINT="\033[2m"
 readonly SGR_CYAN="\033[36m"
 
-show_options(){
+show_repo_options(){
   for i in ${!repos[@]}; do
       if [[ $selection -eq $i ]]; then
         printf "  ${SGR_CYAN}ο${SGR_RESET} %s\n" "${repos[$i]}"
@@ -25,38 +29,111 @@ show_options(){
   done
 }
 
-clear
-show_options
 
+show_docker_options(){
 
-while true; do
-    read -rsn 1 key
-    case "$key" in
-      $ESCAPE_SEQ)
-        read -rsn 1 -t 1 tmp
-        if [[ "$tmp" == "[" ]]; then
-          read -rsn 1 -t 1 arrow
-          case "$arrow" in
-            $UP)
-              if [[ $selection -ne 0 ]]; then
-                selection=$((selection - 1))
-              fi
-              clear
-              show_options
-              ;;
-            $DOWN)
-              if [[ $selection -ne $upperBounds ]]; then
-                selection=$((selection + 1))
-              fi
-              clear
-              show_options
-              ;;
-          esac
-        fi
+  for i in ${!containers[@]}; do
+      if [[ $selection -eq $i ]]; then
+        printf "  ${SGR_CYAN}ο${SGR_RESET} %s\n" "${containers[$i]}"
+      else
+        printf "    ${SGR_FAINT}%s${SGR_RESET}\n" "${containers[$i]}"
+      fi
+  done
+}
+
+select_repo(){
+  while true; do
+      read -rsn 1 key
+      case "$key" in
+        $ESCAPE_SEQ)
+          read -rsn 1 -t 1 tmp
+          if [[ "$tmp" == "[" ]]; then
+            read -rsn 1 -t 1 arrow
+            case "$arrow" in
+              $UP)
+                if [[ $selection -ne 0 ]]; then
+                  selection=$((selection - 1))
+                fi
+                clear
+                show_repo_options
+                ;;
+              $DOWN)
+                if [[ $selection -ne $upperBounds ]]; then
+                  selection=$((selection + 1))
+                fi
+                clear
+                show_repo_options
+                ;;
+            esac
+          fi
+          ;;
+        "")
+          # Enter key pressed, this is the selection
+          cd "$rootPath/${repos[$selection]}"
+          [[ $START_CODE -eq 1 ]] && code .
+          break
         ;;
-      "")
-        # Enter key pressed, this is the selection
-        echo "cd $rootPath/${repos[$selection]}"
-      ;;
+      esac
+  done
+}
+
+
+select_container(){
+   while true; do
+      read -rsn 1 key
+      case "$key" in
+        $ESCAPE_SEQ)
+          read -rsn 1 -t 1 tmp
+          if [[ "$tmp" == "[" ]]; then
+            read -rsn 1 -t 1 arrow
+            case "$arrow" in
+              $UP)
+                if [[ $selection -ne 0 ]]; then
+                  selection=$((selection - 1))
+                fi
+                clear
+                show_docker_options
+                ;;
+              $DOWN)
+                if [[ $selection -ne $((${#containers[@]} - 1)) ]]; then
+                  selection=$((selection + 1))
+                fi
+                clear
+                show_docker_options
+                ;;
+            esac
+          fi
+          ;;
+        "")
+          # Enter key pressed, this is the selection
+          read selected_container _ <<< ${containers[$selection]}
+          docker logs -f $selected_container
+        ;;
+      esac
+  done
+}
+
+
+
+clear
+if [[ -z $1 ]]; then
+  show_repo_options
+  select_repo
+else
+  while getopts "lc" opt; do
+    case $opt in
+      l)
+        show_docker_options
+        select_container
+        ;;
+      c)
+        START_CODE=1
+        show_repo_options
+        select_repo
+        ;;
+      *)
+        echo "Show usage"
+        ;;
     esac
-done
+  done
+fi
